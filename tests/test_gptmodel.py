@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import jax
+
 from toyGPT.gpt_model import GPTModel
 from toyGPT.randmat import Random
 
@@ -35,6 +37,14 @@ def test_gpt_model():
 
     # -log(prob) can only be positive
     assert loss > 0
+
+    # check differentiability
+    loss_and_grad = jax.value_and_grad(model._loss, argnums=(0,))
+    _, grads = loss_and_grad(model.weights, x_idx, x_idx)
+    grads = grads[0]
+
+    for w, grad in zip(model.weights, grads):
+        assert w.shape == grad.shape
 
 
 def test_save_load(tmp_path):

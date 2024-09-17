@@ -39,7 +39,7 @@ def transformer_block(
     x : jnp.array
         output tensor the same shape as the input (batch, seq_len, x_dim)
     """
-    _, seq_len, x_dim = x_emb.shape
+    batchsize, seq_len, x_dim = x_emb.shape
     x_dim_head = x_dim // num_heads
 
     qk_dim = (weights.shape[1] - 3 * x_dim) // 2
@@ -65,8 +65,6 @@ def transformer_block(
     queries = jnp.matmul(x_emb, w_q)  # (BATCH_SIZE, SEQ_LEN, QK_DIM)
     keys = jnp.matmul(x_emb, w_k)     # (BATCH_SIZE, SEQ_LEN, QK_DIM)
     values = jnp.matmul(x_emb, w_v)   # (BATCH_SIZE, SEQ_LEN, X_DIM)
-
-    batchsize, seq_len, _ = x_emb.shape
 
     # (BATCH_SIZE, HEADS, SEQ_LEN, QK_DIM_HEAD)
     shape = (batchsize, seq_len, num_heads)
