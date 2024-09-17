@@ -1,7 +1,6 @@
 import re
 import string
 from collections import Counter
-from multiprocessing import Pool
 
 
 class WordTokenizer:
@@ -39,15 +38,16 @@ class WordTokenizer:
         self.eos_token = self.word_to_idx["EOS"]
         self.pad_token = self.word_to_idx["PAD"]
 
-    def __call__(self, x: str | list[str]) -> list[list[int]]:
-        with Pool() as pool:
-            result = pool.map(
+    def __call__(self, x: list[str]) -> list[list[int]]:
+        result = list(
+            map(
                 lambda x_i:[
                     self.word_to_idx.get(w, self.unk_token)
                     for w in x_i.split(" ")
                 ] + [self.eos_token],
                 x
             )
+        )
         return result
 
     def decode(self, x_idx: list[int]):

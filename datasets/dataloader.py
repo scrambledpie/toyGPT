@@ -113,7 +113,7 @@ class DataLoader:
         assert data_tensor_padded.shape[0] % self.batchsize == 0
         assert data_tensor_padded.shape[1] == self.seq_len
 
-        self._data_tensor_padded = data_tensor_padded
+        self._data_tensor_padded = data_tensor_padded.astype(jnp.int32)
 
     def __iter__(self):
         self._iter_index = 0
