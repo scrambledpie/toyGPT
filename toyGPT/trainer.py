@@ -17,7 +17,6 @@ def train_model(
     epochs:int=100,
     checkpoint_dir: Path|None=None,
     log_dir: Path|None = None,
-    dtype: jnp.dtype=jnp.float32,
 ) -> None:
     """
     Train a GPT model on the given dataset for given number of epochs. This
@@ -46,7 +45,7 @@ def train_model(
 
     optimizer = AdamOptimizer(
         param_shapes=[w.shape for w in model.weights],
-        dtype=dtype,
+        dtype=model.dtype,
         learning_rate_init=0.004
     )
 
