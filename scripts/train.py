@@ -4,16 +4,22 @@ from toyGPT.trainer import train_model
 from datasets.wine_dataset import WineDataLoader
 from toyGPT.gpt_model import GPTModel
 
+from folders import make_new_folders
 
 def main():
+    """
+    Train a GPT model on the Wine reviews dataset. Use FP32/TF32 precision on
+    a single GPU.
+    """
     batchsize = 1000
     seq_len = 150
     vocab_size = 100
     dtype = jax.numpy.float32
 
-    num_layers=2
-    x_dim=256
-    qk_dim=256
+    num_layers = 3
+    num_heads = 4
+    x_dim = 256
+    qk_dim = 256
 
     wine_dataloader = WineDataLoader(
         batchsize=batchsize,
@@ -31,12 +37,17 @@ def main():
         num_layers=num_layers,
         x_dim=x_dim,
         qk_dim=qk_dim,
+        num_heads=num_heads,
     )
+
+    checkpoint_dir, log_dir = make_new_folders()
 
     train_model(
         model=model,
         dataloader=wine_dataloader,
         epochs = 5,
+        checkpoint_dir=checkpoint_dir,
+        log_dir=log_dir,
     )
 
 
