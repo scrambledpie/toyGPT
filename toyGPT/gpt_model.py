@@ -15,7 +15,6 @@ class GPTModel:
         vocab_size:int,
         context_size:int,
         dtype=jnp.float32,
-        dtype_batch=jnp.float16,
         num_layers:int=2,
         x_dim:int=256,
         qk_dim:int=128,
@@ -39,7 +38,6 @@ class GPTModel:
         self.pad_token = pad_token
 
         self.dtype = dtype
-        self.dtype_batch = dtype_batch
 
         # initialise embeddings token_id -> embedding vector
         self.embedding = Random.randmat(
@@ -72,11 +70,6 @@ class GPTModel:
             )
             self.weights.append(weights_i)
 
-        # low precision copies
-        self.embedding_batch = self.embedding.astype(self.dtype_batch)
-        self.pos_embeddings_batch = self.pos_embeddings.astype(self.dtype_batch)
-        self.weights_batch = [w.astype(self.dtype_batch) for w in self.weights]
-
     @staticmethod
     def _init_pos_embeddings(context_size:int, x_dim:int, dtype) -> jnp.array:
         """" initialise positional embeddings """
@@ -107,11 +100,11 @@ class GPTModel:
         assert len(x_idx.shape) == 2, f" x_idx has wierd shape {x_idx.shape}"
 
         _, seq_len = x_idx.shape
-        assert seq_len <= self.pos_embeddings_batch.shape[1], (
-            f"out of context! {seq_len} > {self.pos_embeddings_batch.shape[1]}"
+        assert seq_len <= self.pos_embeddings.shape[1], (
+            f"out of context! {seq_len} > {self.pos_embeddings.shape[1]}"
         )
-        x = self.pos_embeddings_batch[:, :seq_len, :]
-        x = x + self.embedding_batch[x_idx, :]
+        x = self.pos_embeddings[:, :seq_len, :]
+        x = x + self.embedding[x_idx, :]
 
         # pass through transformer blocks
         for w in weights_list[:-1]:
@@ -139,7 +132,7 @@ class GPTModel:
 
         # do not compute loss for padding tokens! (batch_size * seq_len,)
         pad_mask = jnp.clip(jnp.abs(y_idx - self.pad_token), min=0, max=1)
-        pad_mask = pad_mask.astype(self.dtype_batch)
+        pad_mask = pad_mask.astype(self.dtype)
 
         loss_1 = jax.vmap(getitem)(logits, y_idx)
         loss_1 = loss_1 * pad_mask
@@ -162,7 +155,6 @@ class GPTModel:
             "vocab_size":self.vocab_size,
             "context_size": self.context_size,
             "dtype": self.weights[0].dtype,
-            "dtype_batch": self.weights_batch[0].dtype,
             "x_dim":self.x_dim,
             "qk_dim":self.qk_dim,
             "eos_token": self.eos_token,
