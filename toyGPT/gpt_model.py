@@ -155,50 +155,6 @@ class GPTModel:
 
         return -loss
 
-    def _generate_once(self, x_idx: jnp.array) -> jnp.array:
-        # (1, len(prompt_tokens), VOCAB_SIZE)
-        logits = self._forward(weights_list=self.weights, x_idx=x_idx)
-        x_new = jnp.argmax(logits[0, -1, :]).reshape((1, 1))
-        return x_new
-
-    def generate(
-        self,
-        prompt_tokens:list[str],
-        vocab:list[str]=None,
-        max_tokens:int = 200,
-    ) -> jnp.array:
-        # assert isinstance(prompt_tokens, list)
-        # assert all([isinstance(x, int) for x in prompt_tokens])
-
-        generate_once = jax.jit(self._generate_once)
-        # generate_once = self._generate_once
-
-
-        x_idx = jnp.array(prompt_tokens).reshape(1, -1)
-
-        if vocab:
-            print(" ".join([vocab[i] for i in prompt_tokens]), end=" ")
-
-        while (
-            x_idx.shape[1] < self.context_size - 1 and
-            x_idx[0][-1] != self.eos_token and
-            x_idx.shape[1] < max_tokens
-        ):
-            x_new = generate_once(x_idx)
-
-            x_new = x_new
-            x_idx = jnp.concat([x_idx, x_new], axis=1)
-
-            if vocab:
-                print(vocab[x_idx[0, -1]], end=" ")
-            else:
-                print(x_idx.shape, x_idx)
-
-        if vocab:
-            return " ".join([vocab[i] for i in x_idx[0]])
-        else:
-            return x_idx[0, :]
-
     def save(self, filename:Path):
 
         print("Saving Model: ", end="")
