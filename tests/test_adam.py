@@ -53,10 +53,3 @@ def test_adam():
 
         # prepare for next iteration
         params = params_new
-
-
-if __name__=="__main__":
-    test_adam()
-
-
-

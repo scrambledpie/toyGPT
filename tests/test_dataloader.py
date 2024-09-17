@@ -12,8 +12,3 @@ def test_wine_dataloader():
                 assert x.shape[1] == seq_len
 
             assert i == len(wd) - 1
-            print(f"Passed {batchsize} {seq_len}")
-
-
-if __name__=="__main__":
-    test_wine_dataloader()

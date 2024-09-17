@@ -23,30 +23,15 @@ def _format_size(num_bytes:int) -> str:
 
 
 def get_size(x:list | jnp.ndarray) -> str:
+    """ get memory of a tensor/list of tensors """
     return _format_size(_get_bytes(x))
 
 
 def get_shape(x:list | jnp.ndarray):
+    """
+    Read shapes of lists of tensors, return shapes in same nested structure
+    """
     if isinstance(x, list) or isinstance(x, tuple):
         return [get_shape(x_i) for x_i in x]
     return x.shape
 
-
-def nanprint(x: jnp.array, msg:str="") -> None:
-    # return
-    nans_exist = jnp.any(jnp.isnan(x))
-    print(msg)
-    print("    ", str(x.dtype), tuple(x.shape))
-    # debug.print("    Nans {}, min {}, max {}", nans_exist, x.min(), x.max())
-    print(f"    Nans {nans_exist}, min {x.min()}, max { x.max()}")
-    print()
-
-
-
-
-if __name__=="__main__":
-    x = jnp.array([[0.1 for _ in range(1024)] for _ in range(1024)])
-
-    print(f"x={get_shape(x)}")
-
-    print(f"x={get_shape([x, x, [x, [x], [[x]]]])}")
