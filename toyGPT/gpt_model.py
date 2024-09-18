@@ -37,7 +37,7 @@ class GPTModel:
             pad_token = vocab_size + 1
         self.pad_token = pad_token
 
-        self.dtype = dtype
+        self._dtype = dtype
 
         # initialise embeddings token_id -> embedding vector
         self.embedding = Random.randmat(
@@ -147,6 +147,18 @@ class GPTModel:
         loss = (loss_1 - loss_2) * (1/pad_mask.sum())
 
         return -loss
+
+    @property
+    def dtype(self) -> None:
+        return self._dtype
+
+    @dtype.setter
+    def dtype(self, dtype: jnp.dtype) -> None:
+        """ Cast all local variables to the new type """
+        self._dtype = dtype
+        self.weights = [w.astype(dtype) for w in self.weights]
+        self.pos_embeddings = self.pos_embeddings.astype(dtype)
+        self.embedding = self.embedding.astype(dtype)
 
     def save(self, filename:Path):
 

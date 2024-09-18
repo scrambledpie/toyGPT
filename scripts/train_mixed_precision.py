@@ -1,20 +1,23 @@
 import jax
 
-from toyGPT.trainer import train_model
+from toyGPT.trainer_mixed_precision import train_model_mixed_precision
 from datasets.wine_dataset import WineDataLoader
 from toyGPT.gpt_model import GPTModel
 
 from folders import make_new_folders
 
+
 def main():
     """
-    Train a GPT model on the Wine reviews dataset. Use FP32/TF32 precision on
-    a single GPU.
+    Train a GPT model on the Wine reviews dataset. Use mixed FP32/TF32 precision
+    for teh optimizer and master weights and FP16 for forward+backward passes.
+    Uses a single GPU.
     """
-    batchsize = 1000
+    batchsize = 100
     seq_len = 150
     vocab_size = 100
-    dtype = jax.numpy.float32
+    dtype_lo = jax.numpy.float16
+    dtype_hi = jax.numpy.float32
 
     num_layers = 3
     num_heads = 4
@@ -32,7 +35,7 @@ def main():
         eos_token=wine_dataloader.tokenizer.eos_token,
         pad_token=wine_dataloader.tokenizer.pad_token,
         context_size=seq_len,
-        dtype=dtype,
+        dtype=dtype_lo,
         num_layers=num_layers,
         x_dim=x_dim,
         qk_dim=qk_dim,
@@ -41,12 +44,14 @@ def main():
 
     checkpoint_dir, log_dir = make_new_folders()
 
-    train_model(
+    train_model_mixed_precision(
         model=model,
         dataloader=wine_dataloader,
         epochs = 5,
         checkpoint_dir=checkpoint_dir,
         log_dir=log_dir,
+        dtype_lo=dtype_lo,
+        dtype_hi=dtype_hi,
     )
 
 
