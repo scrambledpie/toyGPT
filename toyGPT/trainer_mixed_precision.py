@@ -22,23 +22,18 @@ def sharded_accumulation(
     - each split compute mean over first axis
     - concat the tensor over the split axis (was second, now)
     """
-    shard_size = tensor_lo.shape[1] // shards
-    outputs = []
+    shard_size = tensor_lo.shape[0] // shards
+    output = jnp.zeros(dtype=dtype_hi, shape=tensor_lo.shape[1:])
     for i in range(shards):
-        # (batch, shardsize, d3, d4,...)
-        shard = tensor_lo[:, i*shard_size:(i+1)*shard_size, :]
+        shard = tensor_lo[i*shard_size:(i+1)*shard_size, :]
+        output = output + shard.astype(dtype_hi).sum(0)
 
-        # (shardsize, d3, d4,...)
-        shard = shard.astype(dtype_hi).mean(0)
-        outputs.append(shard)
+    shard = tensor_lo[(i+1)*shard_size:, :]
+    output = output + shard.astype(dtype_hi).sum(0)
 
-    # Final partially full shard
-    shard = tensor_lo[:, (i+1) * shard_size:, :]
-    shard = shard.astype(dtype_hi).mean(0)
-    outputs.append(shard)
+    output = output * (1 / tensor_lo.shape[0])
 
-    # (sum(shards), d3, d4,...)
-    return jnp.concat(outputs)
+    return output
 
 
 def train_model_mixed_precision(
