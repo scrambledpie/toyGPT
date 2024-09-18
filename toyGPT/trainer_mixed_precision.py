@@ -11,6 +11,36 @@ from toyGPT.gpt_model import GPTModel
 from toyGPT.adamoptimizer import AdamOptimizer
 
 
+@jax.jit
+def sharded_accumulation(
+    tensor_lo:jnp.ndarray,
+    shards:int=20,
+    dtype_hi:jnp.dtype=jnp.float32,
+) -> jnp.ndarray:
+    """
+    - split a tensor along itrs second axis
+    - each split compute mean over first axis
+    - concat the tensor over the split axis (was second, now)
+    """
+    shard_size = tensor_lo.shape[1] // shards
+    outputs = []
+    for i in range(shards):
+        # (batch, shardsize, d3, d4,...)
+        shard = tensor_lo[:, i*shard_size:(i+1)*shard_size, :]
+
+        # (shardsize, d3, d4,...)
+        shard = shard.astype(dtype_hi).mean(0)
+        outputs.append(shard)
+
+    # Final partially full shard
+    shard = tensor_lo[:, (i+1) * shard_size:, :]
+    shard = shard.astype(dtype_hi).mean(0)
+    outputs.append(shard)
+
+    # (sum(shards), d3, d4,...)
+    return jnp.concat(outputs)
+
+
 def train_model_mixed_precision(
     model:GPTModel,
     dataloader:DataLoader,
@@ -88,19 +118,25 @@ def train_model_mixed_precision(
             batch_start = time.time()
 
             # compute gradients in low precision
-            loss_lo, grads_lo = loss_and_grad_batch(
+            # expands the data to (batch, 1, seq_len) as the batch dimension
+            # is used for jav.vmap.
+            loss_lo, grads = loss_and_grad_batch(
                 [w.astype(dtype_lo) for w in weights_hi],
                 x_idx[:, None, :-1],
                 x_idx[:, None, 1:],
             )
-            grads_lo = grads_lo[0]
+            grads = grads[0]
 
             # convert the grasdients to high precision and accumulate
-            grads_hi = [g.astype(dtype_hi) for g in grads_lo]
-            grads_hi = [g.mean(axis=0) for g in grads_hi]
+            # NOTE: remove overwrite low precision tensors to save RAM
+            for j in range(len(grads)):
+                grads[j] = sharded_accumulation(grads[j])
+            # grads = [g.astype(dtype_hi).mean(0) for g in grads]
+
+            # grads = [sharded_accumulation(g) for g in grads]
 
             # take the gradient step
-            weights_hi = optimizer.update_params(weights_hi, grads_hi)
+            weights_hi = optimizer.update_params(weights_hi, grads)
 
             batch_time = time.time() - batch_start
 

@@ -40,7 +40,7 @@ class GPTModel:
         self._dtype = dtype
 
         # initialise embeddings token_id -> embedding vector
-        self.embedding = Random.randmat(
+        embedding = Random.randmat(
             shape=(vocab_size, x_dim),
             dtype=dtype,
             minval=-1,
@@ -60,7 +60,7 @@ class GPTModel:
         # make one big weights matrix for each layer that we unpacked for
         # (Q, K, V, fc1, fc2)
         n_cols = [(qk_dim * 2 + x_dim * 3)] * self.num_layers + [vocab_size]
-        self.weights = []
+        self.weights = [embedding]
         for n_col in n_cols:
             weights_i = Random.randmat(
                 shape=(x_dim, n_col),
@@ -104,10 +104,10 @@ class GPTModel:
             f"out of context! {seq_len} > {self.pos_embeddings.shape[1]}"
         )
         x = self.pos_embeddings[:, :seq_len, :]
-        x = x + self.embedding[x_idx, :]
+        x = x + weights_list[0][x_idx, :]
 
         # pass through transformer blocks
-        for w in weights_list[:-1]:
+        for w in weights_list[1:-1]:
             x = transformer_block(weights=w, x_emb=x, num_heads=self.num_heads)
 
         # pass through final inear layer
@@ -158,7 +158,6 @@ class GPTModel:
         self._dtype = dtype
         self.weights = [w.astype(dtype) for w in self.weights]
         self.pos_embeddings = self.pos_embeddings.astype(dtype)
-        self.embedding = self.embedding.astype(dtype)
 
     def save(self, filename:Path):
 

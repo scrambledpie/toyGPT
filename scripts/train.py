@@ -11,9 +11,9 @@ def main():
     Train a GPT model on the Wine reviews dataset. Use FP32/TF32 precision on
     a single GPU.
     """
-    batchsize = 1000
+    batchsize = 1125
     seq_len = 150
-    vocab_size = 100
+    vocab_size = 10000
     dtype = jax.numpy.float32
 
     num_layers = 3
@@ -28,7 +28,7 @@ def main():
     )
 
     model = GPTModel(
-        vocab_size=10000,
+        vocab_size=vocab_size,
         eos_token=wine_dataloader.tokenizer.eos_token,
         pad_token=wine_dataloader.tokenizer.pad_token,
         context_size=seq_len,
