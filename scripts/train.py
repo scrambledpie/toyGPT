@@ -6,6 +6,7 @@ from toyGPT.gpt_model import GPTModel
 
 from folders import make_new_folders
 
+
 def main():
     """
     Train a GPT model on the Wine reviews dataset. Use FP32/TF32 precision on

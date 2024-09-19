@@ -11,33 +11,6 @@ from toyGPT.gpt_model import GPTModel
 from toyGPT.adamoptimizer import AdamOptimizer
 
 
-@jax.jit
-def sharded_sum(
-    tensor_lo:jnp.ndarray,
-    shards:int=20,
-    dtype_hi:jnp.dtype=jnp.float32,
-) -> jnp.ndarray:
-    """
-    Sum a tensor along the first axis into FP32, convert the tensor bit by bit
-    to save memory.
-    - split a tensor along its first axis
-    - each split compute mean over first axis
-    - concat the tensor over the split axis (was second, now)
-    """
-    shard_size = tensor_lo.shape[0] // shards
-    output = jnp.zeros(dtype=dtype_hi, shape=tensor_lo.shape[1:])
-    for i in range(shards):
-        shard = tensor_lo[i*shard_size:(i+1)*shard_size, :]
-        output = output + shard.astype(dtype_hi).sum(0)
-
-    shard = tensor_lo[(i+1)*shard_size:, :]
-    output = output + shard.astype(dtype_hi).sum(0)
-
-    output = output * (1 / tensor_lo.shape[0])
-
-    return output
-
-
 def train_model_mixed_precision(
     model:GPTModel,
     dataloader:DataLoader,
@@ -101,12 +74,39 @@ def train_model_mixed_precision(
 
     # weight + minibatch -> param gradients for whole batch
     # (#params,) + (batchsize, seq_len) -> (#params,)
-    loss_and_grad = jax.value_and_grad(model._loss, argnums=(0, ))
 
     # Compute gradient for each batch item, do not average the gradients
     # weight + minibatch -> param gradient for each batch item
     # (#params,) + (batchsize, 1, seq_len) -> (batch, #params)
-    loss_and_grad_batch = jax.jit(jax.vmap(loss_and_grad, in_axes=(None, 0, 0)))
+
+    @jax.jit
+    def loss_and_grad(weights_hi: list[jnp.ndarray], x_idx:jnp.ndarray):
+        """
+        Compute loss and gradients in dtype_lo and accumulate them in
+        dtype_hi.
+        """
+        # compute gradient w.r.t. the 0th argument: weights
+        foo = jax.value_and_grad(model._loss, argnums=(0,))
+
+        # get FP16 gradient matrices for each batch item, map over batch axis
+        foo = jax.vmap(foo, in_axes=(None, 0, 0))
+
+        # (batchsize, 1), list[(batchsize, w.shape[0], w.shape[1]),....]
+        loss, grads = foo(
+                [w.astype(dtype_lo) for w in weights_hi],
+                x_idx[:, None, :-1],
+                x_idx[:, None, 1:],
+        )
+        grads = grads[0]  # unpack  grads w.r.t the 0th argument
+
+        # cast to dtype_hi and accumulate.
+        # NOTE: the accumulation does not seem to cause RAM usage issues!
+        loss = loss.astype(dtype_hi).mean()
+        for i in range(len(grads)):
+            grads[i] = grads[i].mean(0, dtype=dtype_hi)
+
+        return loss, grads
+
 
     for epoch in range(epochs):
         epoch_start = time.time()
@@ -114,28 +114,14 @@ def train_model_mixed_precision(
 
             batch_start = time.time()
 
-            # compute gradients in low precision
-            # expands the data to (batch, 1, seq_len) as the batch dimension
-            # is used for jav.vmap.
-            loss_lo, grads = loss_and_grad_batch(
-                [w.astype(dtype_lo) for w in weights_hi],
-                x_idx[:, None, :-1],
-                x_idx[:, None, 1:],
-            )
-            grads = grads[0]
-
-            # convert the grasdients to high precision and accumulate
-            # NOTE: remove overwrite low precision tensors to save RAM
-            for j in range(len(grads)):
-                grads[j] = sharded_sum(grads[j])
+            loss, grads = loss_and_grad(weights_hi, x_idx)
 
             # take the gradient step
             weights_hi = optimizer.update_params(weights_hi, grads)
 
-            batch_time = time.time() - batch_start
-
             # just the admin
-            loss = float(loss_lo.astype(dtype_hi).mean())
+            batch_time = time.time() - batch_start
+            loss = float(loss)
             prob_correct = float(jnp.exp(-loss))
 
             print(
