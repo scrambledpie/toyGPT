@@ -96,6 +96,10 @@ class DataLoader:
         Given the batch size and sequence length, make the tensor for the full
         dataset that pads short sequences up to seq_len and pads the final batch
         up to full batch size.
+        Use this
+            self._data_tensor : (dataset_size, max_seq_len)
+        to make this
+            self._data_tensor : (num_batch*batchsize, seq_len)
         """
         # pad the final batch with sequencs of pad_tokens
         pad_v = self.batchsize - self._data_tensor.shape[0] % self.batchsize
