@@ -13,7 +13,7 @@ def main():
     for teh optimizer and master weights and FP16 for forward+backward passes.
     Uses a single GPU.
     """
-    batchsize = 500
+    batchsize = 100
     seq_len = 150
     vocab_size = 10000
     dtype_lo = jax.numpy.float32

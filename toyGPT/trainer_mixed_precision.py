@@ -12,13 +12,15 @@ from toyGPT.adamoptimizer import AdamOptimizer
 
 
 @jax.jit
-def sharded_accumulation(
+def sharded_sum(
     tensor_lo:jnp.ndarray,
     shards:int=20,
     dtype_hi:jnp.dtype=jnp.float32,
 ) -> jnp.ndarray:
     """
-    - split a tensor along itrs second axis
+    Sum a tensor along the first axis into FP32, convert the tensor bit by bit
+    to save memory.
+    - split a tensor along its first axis
     - each split compute mean over first axis
     - concat the tensor over the split axis (was second, now)
     """
@@ -125,10 +127,7 @@ def train_model_mixed_precision(
             # convert the grasdients to high precision and accumulate
             # NOTE: remove overwrite low precision tensors to save RAM
             for j in range(len(grads)):
-                grads[j] = sharded_accumulation(grads[j])
-            # grads = [g.astype(dtype_hi).mean(0) for g in grads]
-
-            # grads = [sharded_accumulation(g) for g in grads]
+                grads[j] = sharded_sum(grads[j])
 
             # take the gradient step
             weights_hi = optimizer.update_params(weights_hi, grads)

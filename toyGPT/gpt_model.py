@@ -143,8 +143,8 @@ class GPTModel:
 
         loss_2 = loss_2.sum()
 
-        # average over non-masked elements
-        loss = (loss_1 - loss_2) * (1/pad_mask.sum())
+        # average over non-masked elements, avoid division by zero
+        loss = (loss_1 - loss_2) * (1/(pad_mask.sum() + 0.01))
 
         return -loss
 
