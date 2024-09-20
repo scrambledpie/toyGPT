@@ -118,9 +118,10 @@ class GPTModel:
     def _loss(
         self,
         weights_list: jnp.array,
-        x_idx:jnp.array, # (batch_size, seq_len)
-        y_idx:jnp.array, # (batch_size, seq_len)
+        xy_idx:jnp.array, # (batch_size, seq_len + 1)
     ) -> jnp.array:
+
+        x_idx, y_idx = xy_idx[:, :-1], xy_idx[:, 1:]
 
         # (batch_size, seq_len, vocab_size)
         logits = self._forward(weights_list, x_idx)
