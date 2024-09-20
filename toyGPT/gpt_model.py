@@ -148,6 +148,31 @@ class GPTModel:
 
         return -loss
 
+    def generate(self, x_idx: list[int]) -> list[int]:
+        """
+        From a list of token integer tokens, generate more tokens
+        """
+        # pad the tokens up to seq_len
+        num_tokens = len(x_idx)
+        num_pad = self.context_size - num_tokens
+
+        x_idx = x_idx + [self.pad_token] * num_pad
+        x_idx = jnp.asarray(x_idx).reshape(1, self.context_size)
+
+        last_token = int(x_idx[0, num_tokens])
+
+        gen_once = jax.jit(self._forward)
+
+        while last_token != self.eos_token and num_tokens < self.context_size:
+            logits = gen_once(self.weights, x_idx=x_idx)
+            last_token = int(jnp.argmax(logits[0, num_tokens, :]))
+            x_idx = x_idx.at[0, num_tokens].set(last_token)
+            num_tokens += 1
+
+        stop_tokens = [self.pad_token, self.eos_token]
+
+        return  [int(x) for x in x_idx[0] if x not in stop_tokens]
+
     @property
     def dtype(self) -> None:
         return self._dtype

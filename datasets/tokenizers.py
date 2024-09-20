@@ -38,16 +38,18 @@ class WordTokenizer:
         self.eos_token = self.word_to_idx["EOS"]
         self.pad_token = self.word_to_idx["PAD"]
 
-    def __call__(self, x: list[str]) -> list[list[int]]:
+    def __call__(self, x: list[str], include_eos:bool=True) -> list[list[int]]:
         result = list(
             map(
                 lambda x_i:[
                     self.word_to_idx.get(w, self.unk_token)
-                    for w in x_i.split(" ")
-                ] + [self.eos_token],
+                    for w in self.clean_str(x_i).split(" ")
+                ],
                 x
             )
         )
+        if include_eos:
+            result = [r + [self.eos_token] for r in result]
         return result
 
     def decode(self, x_idx: list[int]):

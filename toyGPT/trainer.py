@@ -17,6 +17,7 @@ def train_model(
     epochs:int=100,
     checkpoint_dir: Path|None=None,
     log_dir: Path|None = None,
+    prompts:list[str]|None=None,
 ) -> None:
     """
     Train a GPT model on the given dataset for given number of epochs. This
@@ -36,7 +37,15 @@ def train_model(
         show loss in tensorboard, by default None and nothing is logged.
     dtype : jnp.dtype, optional
         the datatype for all floats in the model, by default jnp.float32
+    prompts : list[str]
+        a list of strings to start sequence generation, generation is performed
+        once per epoch.
     """
+    if prompts is None:
+        prompts = []
+
+    prompts = dataloader.tokenizer(prompts, include_eos=False)
+    vocab = dataloader.tokenizer.vocab
 
     writer = None
     if log_dir is not None:
@@ -82,8 +91,15 @@ def train_model(
         epoch_time = time.time() - epoch_start
         print(f"Epoch {epoch}:  {epoch_time:.2f} seconds")
 
+        # generate sentences from the prompts
+        completions = [model.generate(p) for p in prompts]
+        completions = [" ".join([vocab[i] for i in p]) for p in completions]
+        completions = "\n\n".join(completions)
+        print(completions)
+
         if writer is not None:
             writer.add_scalar("epoch time", epoch_time, epoch)
+            writer.add_text("Completions", completions, epoch)
 
         if checkpoint_dir is not None:
             filename = checkpoint_dir / f"{epoch}.pt"

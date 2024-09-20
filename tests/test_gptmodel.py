@@ -83,4 +83,26 @@ def test_save_load(tmp_path):
         assert getattr(model, attr) == getattr(model_new, attr)
 
 
+def test_generation():
+    """
+    Prompt the model with arbitrary tokens, let it generate some more
+    """
+    seq_len = 150
+    vocab_size = 100
 
+    model = GPTModel(
+        vocab_size=vocab_size,
+        context_size=seq_len,
+        eos_token=0,
+        pad_token=vocab_size + 1
+    )
+    prompt_tokens = [2, 3, 4, 5, 6, 7]
+
+    completion = model.generate(prompt_tokens)
+
+    for x_i in completion:
+        assert 0 <= x_i <= vocab_size
+
+
+if __name__=="__main__":
+    test_generation()

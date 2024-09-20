@@ -28,6 +28,12 @@ def main():
         vocab_size=vocab_size,
     )
 
+    prompts = [
+        "fruity and spicy",
+        "flavor of smoke like",
+        "chocolate is very"
+    ]
+
     model = GPTModel(
         vocab_size=vocab_size,
         eos_token=wine_dataloader.tokenizer.eos_token,
@@ -45,9 +51,10 @@ def main():
     train_model(
         model=model,
         dataloader=wine_dataloader,
-        epochs = 5,
+        epochs = 15,
         checkpoint_dir=checkpoint_dir,
         log_dir=log_dir,
+        prompts=prompts,
     )
 
 
