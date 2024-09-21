@@ -70,6 +70,9 @@ class GPTModel:
             )
             self.weights.append(weights_i)
 
+        # used for generation, compile just the forewad pass (no loss)
+        self.gen_once = jax.jit(self._forward)
+
     @staticmethod
     def _init_pos_embeddings(context_size:int, x_dim:int, dtype) -> jnp.array:
         """" initialise positional embeddings """
@@ -162,10 +165,8 @@ class GPTModel:
 
         last_token = int(x_idx[0, num_tokens])
 
-        gen_once = jax.jit(self._forward)
-
         while last_token != self.eos_token and num_tokens < self.context_size:
-            logits = gen_once(self.weights, x_idx=x_idx)
+            logits = self.gen_once(self.weights, x_idx=x_idx)
             last_token = int(jnp.argmax(logits[0, num_tokens, :]))
             x_idx = x_idx.at[0, num_tokens].set(last_token)
             num_tokens += 1

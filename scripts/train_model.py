@@ -46,7 +46,7 @@ def main():
         num_heads=num_heads,
     )
 
-    checkpoint_dir = make_new_folders()
+    checkpoint_dir, _ = make_new_folders()
 
     trainer = TrainModel(
         model=model,
