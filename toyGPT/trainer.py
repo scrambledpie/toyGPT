@@ -69,7 +69,7 @@ class TrainModel:
 
         # distribute gradient computaiton over two GPUs or not
         if use_ddp:
-            self.loss_and_grad = self.build_loss_and_grad_ddp(loss_and_grad)
+            self.loss_and_grad = self.convert_to_ddp(loss_and_grad)
         else:
             self.loss_and_grad = jax.jit(loss_and_grad)
 
@@ -131,7 +131,7 @@ class TrainModel:
     @staticmethod
     def build_loss_and_grad(model:GPTModel) -> callable:
         """ build loss and gradient functions """
-        return jax.value_and_grad(model._loss)
+        return jax.value_and_grad(model.compute_loss)
 
     @staticmethod
     def build_loss_and_grad_mixed_precision(model:GPTModel) -> callable:
@@ -147,7 +147,7 @@ class TrainModel:
         def loss_and_grad(weights, x_idx):
 
             # compute gradient w.r.t. the 0th argument: weights
-            foo = jax.value_and_grad(model._loss)
+            foo = jax.value_and_grad(model.compute_loss)
 
             # get FP16 gradient matrices for each batch item
             foo = jax.vmap(foo, in_axes=(None, 0))
@@ -168,7 +168,7 @@ class TrainModel:
         return loss_and_grad
 
     @staticmethod
-    def build_loss_and_grad_ddp(
+    def convert_to_ddp(
         loss_and_grad: callable,
         num_devices:int=2,
     ) -> callable:

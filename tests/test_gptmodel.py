@@ -20,17 +20,20 @@ def test_gpt_model():
     )
 
     # include pad tokens
-    x_idx = Random.randint(
-        shape=(batchsize, seq_len),
+    xy_idx = Random.randint(
+        shape=(batchsize, seq_len + 1),
         minval=0,
         maxval=vocab_size + 1,
     )
 
-    logits = model._forward(weights_list=model.weights, x_idx=x_idx)
+    logits = model._forward(
+        weights_list=model.weights,
+        x_idx=xy_idx[:, :seq_len],
+    )
 
     assert logits.shape == (batchsize, seq_len, vocab_size)
 
-    loss = model._loss(weights_list=model.weights, x_idx=x_idx, y_idx=x_idx)
+    loss = model.compute_loss(weights_list=model.weights, xy_idx=xy_idx)
 
     # loss is a scalar
     loss = float(loss)
@@ -39,8 +42,8 @@ def test_gpt_model():
     assert loss > 0
 
     # check differentiability
-    loss_and_grad = jax.value_and_grad(model._loss, argnums=(0,))
-    _, grads = loss_and_grad(model.weights, x_idx, x_idx)
+    loss_and_grad = jax.value_and_grad(model.compute_loss, argnums=(0,))
+    _, grads = loss_and_grad(model.weights, xy_idx)
     grads = grads[0]
 
     for w, grad in zip(model.weights, grads):

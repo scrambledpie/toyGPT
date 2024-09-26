@@ -118,11 +118,28 @@ class GPTModel:
 
         return x
 
-    def _loss(
+    def compute_loss(
         self,
         weights_list: jnp.array,
         xy_idx:jnp.array, # (batch_size, seq_len + 1)
     ) -> jnp.array:
+        """
+        Given a batch of integer sequences, compute the log probaility of any
+        token given prior tokens in the same sequence.
+
+
+        Parameters
+        ----------
+        weights_list : jnp.array
+            a list of jax tensors for the model parameters
+        xy_idx : jnp.array
+            an integer tensor (batchsize, seq_len + 1) of tokens
+
+        Returns
+        -------
+        jnp.array
+            a single scalar tensor, the average loss over all tokens.
+        """
 
         x_idx, y_idx = xy_idx[:, :-1], xy_idx[:, 1:]
 

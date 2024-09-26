@@ -54,7 +54,7 @@ def main():
         checkpoint_dir=checkpoint_dir,
         prompts=prompts,
         mixed_precision=False,
-        use_ddp=False,
+        use_ddp=True,
     )
     trainer.train(epochs=100)
 
