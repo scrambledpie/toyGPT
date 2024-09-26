@@ -33,6 +33,8 @@ class TrainModel:
     mixed_precision : bool
         if True, forwared and backward passes are performed in FP16 for speed,
         however ths current implementation does not actually reduce VRAM usage!
+    use_ddp : bool
+        evaluate loss and gradients using distributed data parallel over GPUs.
     """
     def __init__(
         self,
@@ -42,6 +44,7 @@ class TrainModel:
         prompts:list[str]|None=None,
         save_every:int=1,
         mixed_precision:bool=False,
+        use_ddp:bool=True,
     ):
         self.model = model
         self.dataloader = dataloader
@@ -56,12 +59,19 @@ class TrainModel:
             prompts = []
         self.prompt_tokens = dataloader.tokenizer(prompts)
 
+        # use the mixed precison loss computation or the full precision
         if mixed_precision:
-            self.loss_and_grad = self.build_loss_and_grad_mixed_precision(
+            loss_and_grad = self.build_loss_and_grad_mixed_precision(
                 model=model
             )
         else:
-            self.loss_and_grad = self.build_loss_and_grad(model=model)
+            loss_and_grad = self.build_loss_and_grad(model=model)
+
+        # distribute gradient computaiton over two GPUs or not
+        if use_ddp:
+            self.loss_and_grad = self.build_loss_and_grad_ddp(loss_and_grad)
+        else:
+            self.loss_and_grad = jax.jit(loss_and_grad)
 
         self.checkpoint_dir = checkpoint_dir
         self.writer = SummaryWriter(logdir=checkpoint_dir)
@@ -121,7 +131,7 @@ class TrainModel:
     @staticmethod
     def build_loss_and_grad(model:GPTModel) -> callable:
         """ build loss and gradient functions """
-        return jax.jit(jax.value_and_grad(model._loss))
+        return jax.value_and_grad(model._loss)
 
     @staticmethod
     def build_loss_and_grad_mixed_precision(model:GPTModel) -> callable:
@@ -134,7 +144,6 @@ class TrainModel:
         """
         model.dtype = jnp.float32
 
-        @jax.jit
         def loss_and_grad(weights, x_idx):
 
             # compute gradient w.r.t. the 0th argument: weights
@@ -154,6 +163,31 @@ class TrainModel:
             for i in range(len(grads)):
                 grads[i] = grads[i].astype(jnp.float32).mean(0)
 
+            return loss, grads
+
+        return loss_and_grad
+
+    @staticmethod
+    def build_loss_and_grad_ddp(
+        loss_and_grad: callable,
+        num_devices:int=2,
+    ) -> callable:
+        """
+        Build loss and gradient functions that are computed over multiple GPUs
+        """
+        loss_and_grad_ddp = jax.pmap(loss_and_grad, in_axes=(None, 0))
+
+        def loss_and_grad(weights, x_idx):
+            """ Reshape data, share over GPUs, compute, aggregate over GPUs """
+            batchsize, seq_len = x_idx.shape
+            batch_per_gpu = batchsize // num_devices
+
+            loss_ddp, grads_ddp = loss_and_grad_ddp(
+                weights,
+                x_idx.reshape(num_devices, batch_per_gpu, seq_len)
+            )
+            loss = loss_ddp.mean()
+            grads = [g.mean(0) for g in grads_ddp]
             return loss, grads
 
         return loss_and_grad
