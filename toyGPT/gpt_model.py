@@ -10,6 +10,9 @@ from .randmat import Random
 
 
 class GPTModel:
+    """
+    A Decoder Transformer for Sequence Generation
+    """
     def __init__(
         self,
         vocab_size:int,
@@ -22,6 +25,31 @@ class GPTModel:
         pad_token:int=None,
         num_heads:int=1,
     ):
+        """
+        The GPT model, a decoder transformer with multi-head self attention.
+
+        Parameters
+        ----------
+        vocab_size : int
+            the max token value, and the dimension of the final output layer
+        context_size : int
+            the longest sequence in the training data.
+        dtype : _type_, optional
+            data type/precision for all operations, by default jnp.float32
+        num_layers : int, optional
+            the number of transformer blocks to repeat, by default 2
+        x_dim : int, optional
+            token embedding dimension, by default 256
+        qk_dim : int, optional
+            query and key dimension, this will be wsplit by num_heads, by
+            default 128.
+        eos_token : int, optional
+            end of sequence token, only used for generation by default 1
+        pad_token : int, optional
+            the padding token to extend short sequences, by default None
+        num_heads : int, optional
+            _description_, by default 1
+        """
         self.context_size = context_size
         self.vocab_size = vocab_size
         self.num_layers = num_layers
